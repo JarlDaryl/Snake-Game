@@ -21,6 +21,7 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
 
     //Snake
     Tile snakeHead;
+    ArrayList<Tile> snakeBody;
 
 
     //Food
@@ -32,6 +33,8 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
     Timer gameLoop;
     int velocityX;
     int velocityY;
+    boolean gameOver = false;
+    JButton restartButton;
 
     SnakeGame(int boardWidth, int boardHeight) {
         this.boardWidth = boardWidth;
@@ -42,6 +45,7 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
         setFocusable(true);
 
         snakeHead = new Tile(5, 5);
+        snakeBody = new ArrayList<Tile>();
 
         food = new Tile(10, 10);
         random= new Random();
@@ -52,6 +56,17 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
 
         gameLoop = new Timer(100, this);
         gameLoop.start();
+
+        // Inicializar el botón de reinicio
+        restartButton = new JButton("Restart");
+        restartButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                restartGame();
+            }
+        });
+        restartButton.setVisible(false); // El botón de reinicio no es visible al principio
+        this.add(restartButton);
     }
 
     public void paintComponent(Graphics g) {
@@ -60,36 +75,103 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
     }
 
     public void draw(Graphics g) {
-        //Grid
-        for(int i = 0; i < boardWidth/tileSize; i++) {
-            //(x1, y1, x2, y2)
-            g.drawLine(i*tileSize, 0, i*tileSize, boardHeight);
-            g.drawLine(0, i*tileSize, boardWidth, i*tileSize);
-        }
-
         //Food
         g.setColor(Color.red);
-        g.fillRect(food.x * tileSize, food.y * tileSize, tileSize, tileSize);
-
-        //Snake
+        g.fill3DRect(food.x * tileSize, food.y * tileSize, tileSize, tileSize, true);
+    
+        //Snake Head
         g.setColor(Color.green);
-        g.fillRect(snakeHead.x * tileSize, snakeHead.y * tileSize, tileSize, tileSize);
+        g.fill3DRect(snakeHead.x * tileSize, snakeHead.y * tileSize, tileSize, tileSize, true);
+    
+        //Snake Body
+        for (int i = 0; i < snakeBody.size(); i++) {
+            Tile snakePart = snakeBody.get(i);
+            g.fill3DRect(snakePart.x* tileSize, snakePart.y * tileSize, tileSize, tileSize, true);
+        }
+    
+        //Score
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        if(gameOver){
+            g.setColor(Color.red);
+            g.drawString("Game Over: " + String.valueOf(snakeBody.size()), tileSize - 16, tileSize);
+        }
+        else {
+            g.drawString("Score: " + String.valueOf(snakeBody.size()), tileSize - 16, tileSize);
+        }
+        if(gameOver){
+            restartButton.setVisible(true);
+        }
+    }
+
+    public void restartGame() {
+        // Reiniciar las variables del juego
+        snakeHead = new Tile(5, 5);
+        snakeBody = new ArrayList<Tile>();
+        food = new Tile(10, 10);
+        placeFood();
+        velocityX = 0;
+        velocityY = 0;
+        gameOver = false;
+        gameLoop.start();
+        restartButton.setVisible(false); // Ocultar el botón de reinicio
     }
 
     public void placeFood() {
         food.x = random.nextInt(boardWidth/tileSize); //600/25 = 24
         food.y = random.nextInt(boardHeight/tileSize);
     }
+
+
+    public boolean collision(Tile tile1, Tile tile2) {
+        return tile1.x == tile2.x && tile1.y == tile2.y;
+    }
+
+
     public void move(){
+        //eat food
+        if (collision(snakeHead, food)){
+            snakeBody.add(new Tile(food.x, food.y));
+            placeFood();
+        }
+
+        //Snake Body
+        for(int i = snakeBody.size()-1; i>=0; i--) {
+            Tile snakePart = snakeBody.get(i);
+            if( i == 0) {
+                snakePart.x = snakeHead.x;
+                snakePart.y = snakeHead.y;
+            } else {
+                Tile prevSnakePart = snakeBody.get(i-1);
+                snakePart.x = prevSnakePart.x;
+                snakePart.y = prevSnakePart.y;
+            }
+        }
+
         //Snake Head
         snakeHead.x += velocityX;
         snakeHead.y += velocityY;
+
+        //game over conditions
+        for ( int i = 0; i < snakeBody.size(); i++){
+            Tile snakePart = snakeBody.get(i);
+            //collide with snakes head
+            if(collision(snakeHead, snakePart)) {
+                gameOver = true;
+            }
+        }
+
+        if (snakeHead.x*tileSize < 0 || snakeHead.x*tileSize > boardWidth || snakeHead.y*tileSize < 0 || snakeHead.y*tileSize > boardHeight) {
+            gameOver = true;
+        }
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
         move();
         repaint();
+        if (gameOver) {
+            gameLoop.stop();
+        }
     }
 
     @Override
